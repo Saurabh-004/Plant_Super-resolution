@@ -1,0 +1,13 @@
+{
+  "architecture": "SRGAN-style Generator",
+  "scale_factor": 4,
+  "lr_size": 32,
+  "hr_size": 128,
+  "num_res_blocks": 16,
+  "feat_channels": 64,
+  "epochs_trained": 150,
+  "best_val_mae": 17.2872,
+  "normalization": "[-1, 1]",
+  "input_note": "Pass LR image as tensor in [-1,1]; output is also in [-1,1]",
+  "saved_at": "2026-05-15T07:03:11.892527Z"
+}
