@@ -452,9 +452,7 @@
           <div style="font-size:11px; color:var(--text-muted); font-weight:400;">8× ensemble — better MAE, slower</div>
         </label>
       </div>
-      <div class="api-row">
-        <input type="text" id="apiUrl" value="http://localhost:8000" placeholder="http://localhost:8000" />
-      </div>
+     
     </div>
 
     <button class="btn-predict" id="predictBtn" onclick="runPrediction()" disabled>
@@ -625,7 +623,7 @@
     if (!selectedFile) return;
     hideError();
 
-    const apiBase = document.getElementById('apiUrl').value.replace(/\/$/, '');
+    const apiBase = window.location.origin;
     const useTta  = document.getElementById('ttaToggle').checked;
 
     // Progress UI
