@@ -1,13 +1,6 @@
 # LeafLens — Plant Super-Resolution Deployment 🌿
 
-## 🌐 Live Demo
 
-🚀 **Deployed on Render using Docker containerization**
-
-🔗 Live Application:  
-[https://plant-super-resolution.onrender.com/](https://plant-super-resolution.onrender.com/)
-
-The application is fully containerized using Docker for consistent deployment and environment reproducibility across systems.
 <p align="center">
   AI-powered plant image super-resolution system built using SRGAN-style deep learning architecture for enhancing low-resolution leaf images into high-quality outputs.
 </p>
@@ -20,7 +13,16 @@ The application is fully containerized using Docker for consistent deployment an
 </p>
 
 ---
+## 🌐 Live Demo
 
+🚀 **Deployed on Render using Docker containerization**
+
+🔗 Live Application:  
+[https://plant-super-resolution.onrender.com/](https://plant-super-resolution.onrender.com/)
+
+The application is fully containerized using Docker for consistent deployment and environment reproducibility across systems.
+
+---
 # 🚀 Features
 
 - 4× AI-powered image super-resolution
