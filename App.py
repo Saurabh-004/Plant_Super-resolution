@@ -105,7 +105,7 @@ app.add_middleware(
 )
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_PATH = r"MODEL_PATH\best_generator.pth"
+MODEL_PATH = r"best_generator.pth"
 model = None
 
 
@@ -116,7 +116,8 @@ async def load_model():
         print(f"WARNING: Model not found at {MODEL_PATH}. /predict will return 503.")
         return
     model = Generator().to(DEVICE)
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+    # NEW — weights_only=False needed for older .pth files, suppresses warning
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False))
     model.eval()
     print(f"Model loaded from {MODEL_PATH} on {DEVICE}")
 
