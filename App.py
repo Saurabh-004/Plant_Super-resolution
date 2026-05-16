@@ -94,8 +94,29 @@ def tta_predict(model, lr_tensor, device):
 
 
 # ── App Setup ─────────────────────────────────────────────────────────────────
+# ── App Setup ─────────────────────────────────────────────────────────────────
+from contextlib import asynccontextmanager
+from fastapi.responses import StreamingResponse, HTMLResponse
 
-app = FastAPI(title="Plant Leaf Super-Resolution API")
+DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+MODEL_PATH = os.environ.get("MODEL_PATH", "app/best_generator.pth")
+model      = None
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    global model
+    if os.path.exists(MODEL_PATH):
+        print(f"Loading model from {MODEL_PATH} on {DEVICE} ...")
+        model = Generator().to(DEVICE)
+        model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False))
+        model.eval()
+        print("Model loaded successfully.")
+    else:
+        print(f"WARNING: Model not found at {MODEL_PATH}. /predict will return 503.")
+    yield
+    model = None
+
+app = FastAPI(title="LeafLens - Plant Super-Resolution API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -104,70 +125,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_PATH = r"best_generator.pth"
-model = None
-
-
-@app.on_event("startup")
-async def load_model():
-    global model
-    if not os.path.exists(MODEL_PATH):
-        print(f"WARNING: Model not found at {MODEL_PATH}. /predict will return 503.")
-        return
-    model = Generator().to(DEVICE)
-    # NEW — weights_only=False needed for older .pth files, suppresses warning
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False))
-    model.eval()
-    print(f"Model loaded from {MODEL_PATH} on {DEVICE}")
-
+# ── Serve index.html at root ──────────────────────────────────────────────────
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    with open(html_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
 
 @app.get("/health")
 async def health():
-    return {
-        "status": "ok",
-        "model_loaded": model is not None,
-        "device": str(DEVICE)
-    }
-
+    return {"status": "ok", "model_loaded": model is not None, "device": str(DEVICE)}
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...), use_tta: bool = True):
     if model is None:
-        raise HTTPException(503, "Model not loaded. Check MODEL_PATH env variable.")
-
-    # Read and validate image
+        raise HTTPException(503, f"Model not loaded. Expected at {MODEL_PATH}.")
     data = await file.read()
+    if not data:
+        raise HTTPException(400, "Empty file received.")
     try:
         img = Image.open(io.BytesIO(data)).convert("RGB")
-    except Exception:
-        raise HTTPException(400, "Could not parse image file.")
-
-    # Resize to exactly 32×32 if needed
+    except Exception as e:
+        raise HTTPException(400, f"Could not parse image: {e}")
     if img.size != (32, 32):
         img = img.resize((32, 32), Image.BICUBIC)
-
-    # Preprocess: [0,1] → [-1,1]
-    lr_tensor = TF.to_tensor(img).unsqueeze(0).to(DEVICE)  # [1,3,32,32]
+    lr_tensor = TF.to_tensor(img).unsqueeze(0).to(DEVICE)
     lr_tensor = lr_tensor * 2.0 - 1.0
-
-    # Inference
     if use_tta:
         fake_hr = tta_predict(model, lr_tensor, DEVICE)
     else:
         with torch.no_grad():
             fake_hr = model(lr_tensor)
-
-    # Postprocess: [-1,1] → [0,255]
     fake_hr_255 = ((fake_hr.clamp(-1, 1) + 1) / 2 * 255)
     fake_hr_255 = fake_hr_255.round().clamp(0, 255).to(torch.uint8)
     img_np = fake_hr_255.squeeze(0).permute(1, 2, 0).cpu().numpy()
-
-    # Convert to PNG bytes
     out_img = Image.fromarray(img_np.astype(np.uint8))
     buf = io.BytesIO()
     out_img.save(buf, format="PNG")
     buf.seek(0)
-
     return StreamingResponse(buf, media_type="image/png",
                               headers={"Content-Disposition": "attachment; filename=upscaled.png"})
